@@ -1,7 +1,4 @@
-_base_ = [
-    '../../_base_/default_runtime.py',
-    '../../_base_/schedules/schedule_adam_step_5e.py'
-]
+_base_ = ['../../_base_/default_runtime.py']
 
 dict_file = 'data/chineseocr/labels/dict_printed_chinese_english_digits.txt'
 label_convertor = dict(
@@ -28,6 +25,13 @@ model = dict(
     loss=dict(type='SARLoss'),
     label_convertor=label_convertor,
     max_seq_len=30)
+
+# optimizer
+optimizer = dict(type='Adam', lr=1e-3)
+optimizer_config = dict(grad_clip=None)
+# learning policy
+lr_config = dict(policy='step', step=[3, 4])
+total_epochs = 5
 
 img_norm_cfg = dict(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
 train_pipeline = [

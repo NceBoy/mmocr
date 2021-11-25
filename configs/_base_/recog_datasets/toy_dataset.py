@@ -1,21 +1,10 @@
-_base_ = [
-    '../../_base_/default_runtime.py', '../../_base_/recog_models/sar.py'
-]
-
-# optimizer
-optimizer = dict(type='Adam', lr=1e-3)
-optimizer_config = dict(grad_clip=None)
-# learning policy
-lr_config = dict(policy='step', step=[3, 4])
-total_epochs = 5
-
 img_norm_cfg = dict(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
 train_pipeline = [
-    dict(type='LoadImageFromFile'),
+    dict(type='LoadImageFromFile', color_type='color_ignore_orientation'),
     dict(
         type='ResizeOCR',
-        height=48,
-        min_width=48,
+        height=32,
+        min_width=32,
         max_width=160,
         keep_aspect_ratio=True),
     dict(type='ToTensorOCR'),
@@ -28,21 +17,25 @@ train_pipeline = [
         ]),
 ]
 test_pipeline = [
-    dict(type='LoadImageFromFile'),
+    dict(type='LoadImageFromFile', color_type='color_ignore_orientation'),
     dict(
-        type='ResizeOCR',
-        height=48,
-        min_width=48,
-        max_width=160,
-        keep_aspect_ratio=True),
-    dict(type='ToTensorOCR'),
-    dict(type='NormalizeOCR', **img_norm_cfg),
-    dict(
-        type='Collect',
-        keys=['img'],
-        meta_keys=[
-            'filename', 'ori_shape', 'resize_shape', 'valid_ratio',
-            'img_norm_cfg', 'ori_filename'
+        type='MultiRotateAugOCR',
+        rotate_degrees=[0, 90, 270],
+        transforms=[
+            dict(
+                type='ResizeOCR',
+                height=32,
+                min_width=32,
+                max_width=160,
+                keep_aspect_ratio=True),
+            dict(type='ToTensorOCR'),
+            dict(type='NormalizeOCR', **img_norm_cfg),
+            dict(
+                type='Collect',
+                keys=['img'],
+                meta_keys=[
+                    'filename', 'ori_shape', 'resize_shape', 'valid_ratio'
+                ]),
         ])
 ]
 
@@ -61,7 +54,7 @@ train1 = dict(
             keys=['filename', 'text'],
             keys_idx=[0, 1],
             separator=' ')),
-    pipeline=None,
+    pipeline=train_pipeline,
     test_mode=False)
 
 train_anno_file2 = 'tests/data/ocr_toy_dataset/label.lmdb'
@@ -77,7 +70,7 @@ train2 = dict(
             keys=['filename', 'text'],
             keys_idx=[0, 1],
             separator=' ')),
-    pipeline=None,
+    pipeline=train_pipeline,
     test_mode=False)
 
 test_anno_file1 = 'tests/data/ocr_toy_dataset/label.lmdb'
@@ -87,25 +80,20 @@ test = dict(
     ann_file=test_anno_file1,
     loader=dict(
         type='LmdbLoader',
-        repeat=10,
+        repeat=1,
         parser=dict(
             type='LineStrParser',
             keys=['filename', 'text'],
             keys_idx=[0, 1],
             separator=' ')),
-    pipeline=None,
+    pipeline=test_pipeline,
     test_mode=True)
 
 data = dict(
+    samples_per_gpu=16,
     workers_per_gpu=2,
-    samples_per_gpu=8,
-    train=dict(
-        type='UniformConcatDataset',
-        datasets=[train1, train2],
-        pipeline=train_pipeline),
-    val=dict(
-        type='UniformConcatDataset', datasets=[test], pipeline=test_pipeline),
-    test=dict(
-        type='UniformConcatDataset', datasets=[test], pipeline=test_pipeline))
+    train=dict(type='ConcatDataset', datasets=[train1, train2]),
+    val=dict(type='ConcatDataset', datasets=[test]),
+    test=dict(type='ConcatDataset', datasets=[test]))
 
 evaluation = dict(interval=1, metric='acc')
